@@ -240,6 +240,24 @@ impl<'i> Internal<'i> {
         };
 
         if matches!(self.server_name, "internal" | "local") {
+            if let Some(existing_id) = self
+                .runner
+                .list
+                .iter()
+                .find(|(_, p)| p.name == name)
+                .map(|(id, _)| *id)
+            {
+                then!(
+                    !silent,
+                    println!(
+                        "{} Replacing existing {}process ({existing_id}) named ({name})",
+                        *helpers::SUCCESS,
+                        self.kind
+                    )
+                );
+                self.runner.remove(existing_id);
+            }
+
             let pattern = Regex::new(r"(?m)^[a-zA-Z0-9]+(/[a-zA-Z0-9]+)*(\.js|\.ts)?$").unwrap();
 
             if pattern.is_match(script) {
@@ -255,7 +273,25 @@ impl<'i> Internal<'i> {
 
             if let Some(server) = servers.get(self.server_name) {
                 match Runner::connect(self.server_name.into(), server.get(), false) {
-                    Some(mut remote) => remote.start(&name, script, file::cwd(), watch),
+                    Some(mut remote) => {
+                        if let Some(existing_id) = remote
+                            .list
+                            .iter()
+                            .find(|(_, p)| p.name == name)
+                            .map(|(id, _)| *id)
+                        {
+                            then!(
+                                !silent,
+                                println!(
+                                    "{} Replacing existing {}process ({existing_id}) named ({name})",
+                                    *helpers::SUCCESS,
+                                    self.kind
+                                )
+                            );
+                            remote.remove(existing_id);
+                        }
+                        remote.start(&name, script, file::cwd(), watch);
+                    }
                     None => crashln!(
                         "{} Failed to connect (name={}, address={})",
                         *helpers::FAIL,
